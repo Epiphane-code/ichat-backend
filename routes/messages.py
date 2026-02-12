@@ -33,38 +33,33 @@ def send_message(data: MessageCreate = Body()):
     }
 
 
-
-@router.get("/discussion/{idA}/{idB}")
-def get_discussion(idA: int, idB: int):
+@router.get("/messages/{user_id}/{contact_id}")
+def get_messages(user_id: int, contact_id: int):
     conn = get_connection()
     cur = conn.cursor()
 
     cur.execute("""
         SELECT id, sender_id, receiver_id, content, created_at
         FROM messages
-        WHERE
-            (sender_id = %s AND receiver_id = %s)
-            OR
-            (sender_id = %s AND receiver_id = %s)
+        WHERE (sender_id = %s AND receiver_id = %s)
+           OR (sender_id = %s AND receiver_id = %s)
         ORDER BY created_at ASC
-    """, (idA, idB, idB, idA))
+    """, (user_id, contact_id, contact_id, user_id))
 
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
-    messages = []
-    for row in rows:
-        messages.append({
+    return [
+        {
             "id": row[0],
             "sender_id": row[1],
             "receiver_id": row[2],
             "content": row[3],
-            "created_at": row[4],
-        })
-
-    return messages
-
+            "created_at": row[4]
+        }
+        for row in rows
+    ]
 
 @router.get("/discussions/{user_id}")
 def get_my_discussions(user_id: int):
@@ -72,19 +67,55 @@ def get_my_discussions(user_id: int):
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT DISTINCT
+        SELECT DISTINCT ON (
             CASE
-                WHEN sender_id = %s THEN receiver_id
-                ELSE sender_id
-            END AS contact_id
-        FROM messages
-        WHERE sender_id = %s OR receiver_id = %s
-    """, (user_id, user_id, user_id))
+                WHEN m.sender_id = %s THEN m.receiver_id
+                ELSE m.sender_id
+            END
+        )
+            CASE
+                WHEN m.sender_id = %s THEN m.receiver_id
+                ELSE m.sender_id
+            END AS contact_id,
+
+            u.username,
+            m.content AS last_message,
+            m.created_at AS last_message_time
+
+        FROM messages m
+
+        JOIN users u ON u.id = (
+            CASE
+                WHEN m.sender_id = %s THEN m.receiver_id
+                ELSE m.sender_id
+            END
+        )
+
+        WHERE m.sender_id = %s OR m.receiver_id = %s
+
+        ORDER BY
+            contact_id,
+            m.created_at DESC
+    """, (user_id, user_id, user_id, user_id, user_id))
 
     rows = cur.fetchall()
+
     cur.close()
     conn.close()
 
-    return [{"contact_id": row[0]} for row in rows]
+    return [
+        {
+            "contact_id": row[0],
+            "username": row[1],
+            "last_message": row[2],
+            "last_message_time": row[3]
+        }
+        for row in rows
+    ]
 
 
+
+    cur.close()
+    conn.close()
+
+    
