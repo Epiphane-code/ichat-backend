@@ -13,17 +13,17 @@ class MessageCreate(BaseModel):
 def send_message(data: MessageCreate = Body()):
     conn = get_connection()
     cur = conn.cursor()
-
     cur.execute("""
         INSERT INTO messages (sender_id, receiver_id, content)
         VALUES (%s, %s, %s)
         RETURNING id
     """, (data.sender_id, data.receiver_id, data.content))
-
     message_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
     conn.close()
+
+    print (data.content)
 
     return {
         "id": message_id,
