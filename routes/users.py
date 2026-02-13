@@ -177,23 +177,35 @@ class GetIdRequest(BaseModel):
     phone: str
 
 
+class GetIdRequest(BaseModel):
+    phone: str
+
 @router.post("/getID")
 def get_id(data: GetIdRequest = Body()):
     conn = get_connection()
     cur = conn.cursor()
 
+    # Normalisation rapide si besoin
+    phone = data.phone
+
     cur.execute(
         "SELECT id FROM users WHERE phone = %s",
-        (data.phone,)
+        (phone,)
     )
     row = cur.fetchone()
+    print("PHONE RECU:", data.phone)
+    print("ROW:", row)
 
     cur.close()
     conn.close()
 
-    if not row:
-        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
-
-    return {
-        "id": row[0]
-    }
+    if row:
+        return {
+            "exists": True,
+            "id": row[0]
+        }
+    else:
+        return {
+            "exists": False,
+            "id": 0
+        }
