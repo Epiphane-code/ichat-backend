@@ -67,35 +67,28 @@ def get_my_discussions(user_id: int):
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT DISTINCT ON (
-            CASE
-                WHEN m.sender_id = %s THEN m.receiver_id
-                ELSE m.sender_id
-            END
-        )
-            CASE
-                WHEN m.sender_id = %s THEN m.receiver_id
-                ELSE m.sender_id
-            END AS contact_id,
+      SELECT DISTINCT ON (
+    CASE
+        WHEN messages.sender_id = %s THEN messages.receiver_id
+        ELSE messages.sender_id
+    END
+)
+    CASE
+        WHEN messages.sender_id = %s THEN messages.receiver_id
+        ELSE messages.sender_id
+    END AS contact_id,
+    users.username,
+    users.phone,
+    messages.content AS last_message,
+    messages.created_at AS last_message_time
+FROM messages
+JOIN users ON users.id = CASE
+    WHEN messages.sender_id = %s THEN messages.receiver_id
+    ELSE messages.sender_id
+END
+WHERE messages.sender_id = %s OR messages.receiver_id = %s
+ORDER BY contact_id, last_message_time DESC;
 
-            u.username,
-            m.content AS last_message,
-            m.created_at AS last_message_time
-
-        FROM messages m
-
-        JOIN users u ON u.id = (
-            CASE
-                WHEN m.sender_id = %s THEN m.receiver_id
-                ELSE m.sender_id
-            END
-        )
-
-        WHERE m.sender_id = %s OR m.receiver_id = %s
-
-        ORDER BY
-            contact_id,
-            m.created_at DESC
     """, (user_id, user_id, user_id, user_id, user_id))
 
     rows = cur.fetchall()
@@ -107,8 +100,9 @@ def get_my_discussions(user_id: int):
         {
             "contact_id": row[0],
             "username": row[1],
-            "last_message": row[2],
-            "last_message_time": row[3]
+            "phone": row[2],
+            "last_message": row[3],
+            "last_message_time": row[4]
         }
         for row in rows
     ]
