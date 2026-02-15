@@ -35,7 +35,6 @@ def create_user(user: UserCreate):
         "username": user.name,
         "phone": user.phone
 
-        
     }
 @router.get("/exists/{phone}")
 def user_exists(phone: str):

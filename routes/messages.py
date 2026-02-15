@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, WebSocket, WebSocketDisconnect
+from websocket_manager import manager
 from db.connection import get_connection
 from pydantic import BaseModel
 
@@ -10,7 +11,7 @@ class MessageCreate(BaseModel):
     content: str
 
 @router.post("/send")
-def send_message(data: MessageCreate = Body()):
+async def send_message(data: MessageCreate = Body()):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -24,6 +25,14 @@ def send_message(data: MessageCreate = Body()):
     conn.close()
 
     print (data.content)
+
+    await manager.send_to_user(
+    data.receiver_id,
+    {
+        "type": "new_message",
+        "discussion_id": data.sender_id
+    }
+)
 
     return {
         "id": message_id,
@@ -87,7 +96,7 @@ JOIN users ON users.id = CASE
     ELSE messages.sender_id
 END
 WHERE messages.sender_id = %s OR messages.receiver_id = %s
-ORDER BY contact_id, last_message_time DESC;
+ORDER BY contact_id, last_message_time ASC;
 
     """, (user_id, user_id, user_id, user_id, user_id))
 
@@ -106,10 +115,3 @@ ORDER BY contact_id, last_message_time DESC;
         }
         for row in rows
     ]
-
-
-
-    cur.close()
-    conn.close()
-
-    
